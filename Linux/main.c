@@ -498,7 +498,7 @@ void mkdir(fptr *cur, char *argv[])
     //for(i=0;i<pathnum;i++)
       //  printf("path:%s\n",path_list[i]);
     if(m<=-1) mode=755; // default is 755
-    // Node Creation part
+    // Directory Creation part
     if(p==0){
         for(i=0;i<pathnum;i++){
             if(chkdir(cur,path_list[i],mode)==NULL) // Need the fork() p==0 case
@@ -721,6 +721,5 @@ int main()
         save_fd("directory.bin");
     }
     freeall(root);
-    //save_fd("directory.bin");
     return 0;
 }
