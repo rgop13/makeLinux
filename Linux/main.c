@@ -22,14 +22,13 @@ typedef struct fnode{
 }fnode;
 typedef struct group *gptr;
 typedef struct group{
+    int gid;
     char name[20];
-    int mode;
 }group;
 typedef struct user *uptr;
 typedef struct user{
-    char name[20];
-    char pswd[20];
-    char group[20];
+    int uid,gid;
+    char name[20],passwd[20],home_path[30];
 }user;
 typedef struct qnode *qptr;
 typedef struct qnode{
@@ -53,12 +52,7 @@ fptr change_directory(fptr *cur,fptr *_cur,char dirname[],char mode[]);
 int check_arg(char *argv[], int max);
 void get_permission(fptr *cur,int mode);
 fptr chdir(fptr *curr,char *path[],char mode[]);
-fptr root=NULL;
-
-void rm(fptr *cur,char *argv[])
-{
-
-}
+fptr root=NULL; user *user_list;
 
 int get_childsize(fptr t)
 {
@@ -699,10 +693,21 @@ void split_cmd(char argv[],char cmd[],char remain[])
         argv[i]='\0';
 }
 
+user user_reset_userlist()
+{
+    user_list=(uptr*)malloc(sizeof(uptr));
+    user_list[0].gid=user_list[0].uid=0;
+    strcpy(user_list[0].name,"root");
+    strcpy(user_list[0].passwd,"sjy");
+    strcpy(user_list[0].home_path,"/");
+    return user_list[0];
+}
+
 int main()
 {
     fptr cur=NULL;
-    get_fd(&cur,'d',"root",777);
+    //uptr cur_user=user_reset_userlist();
+    //get_fd(&cur,'d',"root",777); // load_mydir 쓸꺼면 주석처리하고, load 안헐꺼면 이거 활성화
     //printf("load end--------------------------------------------\n");
     load_mydir(&cur,"directory.bin"); // if you want to load previous directory, use this.
     preorder(root), printf("\n");
