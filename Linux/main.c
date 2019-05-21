@@ -29,6 +29,7 @@ typedef struct user *uptr;
 typedef struct user{
     int uid,gid;
     char name[20],passwd[20],home_path[30];
+    uptr link;
 }user;
 typedef struct qnode *qptr;
 typedef struct qnode{
@@ -52,7 +53,7 @@ fptr change_directory(fptr *cur,fptr *_cur,char dirname[],char mode[]);
 int check_arg(char *argv[], int max);
 void get_permission(fptr *cur,int mode);
 fptr chdir(fptr *curr,char *path[],char mode[]);
-fptr root=NULL; user *user_list;
+fptr root=NULL; uptr user_head=NULL;
 
 int get_childsize(fptr t)
 {
@@ -115,7 +116,7 @@ qtype make_queue()
     return queue;
 }
 
-int pwd_optchk(char remain[])
+int optchk(char remain[],char funcname[])
 {
     int i=0;
     while(remain[i]!='\0'){
@@ -123,7 +124,7 @@ int pwd_optchk(char remain[])
             while(remain[i]=='-'){
                 i++;
             }
-            printf("bash: pwd: -%c invalid option\n",remain[i]);
+            printf("bash: %s: -%c invalid option\n",funcname,remain[i]);
             return 0;
         } i++;
     }
@@ -132,7 +133,7 @@ int pwd_optchk(char remain[])
 
 void pwd(fptr curtemp,char remain[])
 {
-    if(!pwd_optchk(remain)) return;
+    if(!optchk(remain,"pwd")) return;
     fptr t=curtemp;
     stacktype stack=make_stack();
     if(t->upper==t){
@@ -693,28 +694,96 @@ void split_cmd(char argv[],char cmd[],char remain[])
         argv[i]='\0';
 }
 
-user user_reset_userlist()
+void user_freeall()
 {
-    user_list=(uptr*)malloc(sizeof(uptr));
-    user_list[0].gid=user_list[0].uid=0;
-    strcpy(user_list[0].name,"root");
-    strcpy(user_list[0].passwd,"sjy");
-    strcpy(user_list[0].home_path,"/");
-    return user_list[0];
+    uptr lead=user_head, prev=lead;
+    while(lead!=NULL){
+        prev=lead;
+        lead=lead->link;
+        free(prev);
+    }
+}
+
+uptr user_reset_userlist()
+{
+    user_head=(uptr)malloc(sizeof(user));
+    user_head->gid=user_head->uid=0;
+    user_head->link=NULL;
+    strcpy(user_head->name,"root");
+    strcpy(user_head->passwd,"sjy");
+    strcpy(user_head->home_path,"/");
+    return user_head;
+}
+
+void user_save_userlist(char *save_dir)
+{
+    FILE *fp;
+    if((fp=fopen(save_dir,"w"))==NULL){
+        printf("File open error!\n"); return;
+    }
+    uptr lead=user_head;
+    while(lead!=NULL){
+        fwrite(lead,sizeof(user),1,fp);
+        lead=lead->link;
+    }
+    fclose(fp);
+}
+
+void user_load_userlist(char *load_dir)
+{
+    FILE *fp;
+    if((fp=fopen(load_dir,"r")==NULL)){
+        printf("File open error!\n"); return;
+    }
+    printf("???\n");
+    while(!feof(fp)){
+        printf("before load\n");
+        uptr newp=(uptr)malloc(sizeof(user));
+        fread(newp,sizeof(user),1,fp);
+        newp->link=NULL;
+        printf("????\n");
+        if(user_head==NULL)
+                user_head=newp;
+        else{
+            uptr lead=user_head;
+            while(lead->link!=NULL){
+                lead=lead->link;
+            }
+            lead->link=newp;
+        }
+    }
+    fclose(fp);
+}
+
+int is_root(uptr cur_user)
+{
+    if(cur_user->uid==0) return 1;
+    return 0;
+}
+
+void adduser(uptr cur_user,char remain[])
+{
+    if(!is_root(cur_user)){
+        printf("adduser: Inly root may add a user or group to the system.\n");
+        return;
+    }
+    else if(!optchk(remain,"adduser"))
+        return;
 }
 
 int main()
 {
     fptr cur=NULL;
-    //uptr cur_user=user_reset_userlist();
-    //get_fd(&cur,'d',"root",777); // load_mydir ¾µ²¨¸é ÁÖ¼®Ã³¸®ÇÏ°í, load ¾ÈÇæ²¨¸é ÀÌ°Å È°¼ºÈ­
+    //user_reset_userlist();
+    get_fd(&cur,'d',"root",777); // load_mydir ¾µ²¨¸é ÁÖ¼®Ã³¸®ÇÏ°í, load ¾ÈÇæ²¨¸é ÀÌ°Å È°¼ºÈ­
     //printf("load end--------------------------------------------\n");
-    load_mydir(&cur,"directory.bin"); // if you want to load previous directory, use this.
+    user_load_userlist("userlist.bin");
+    uptr cur_user=user_head;
+    //load_mydir(&cur,"directory.bin"); // if you want to load previous directory, use this.
     preorder(root), printf("\n");
     char argv[MAX_ARGV]={'\0'};
     printf("*--Welcome to the DGU OS project system.--*\nIf you want to exit, enter \"exit\".\n");
     while(printf("%s:%s$ ",root->name,cur->name)&&gets(argv)!=EOF&&strncmp(argv,"exit",4)){
-        //int cmdlen=0,remainlen=0,i=0;
         if(!strncmp(argv," ",1)||strlen(argv)<=0) continue;
         char cmd[MAX_CMD], remain[MAX_ARGV-MAX_CMD];
         split_cmd(argv,cmd,remain);
@@ -724,7 +793,9 @@ int main()
         else if(!strcmp(cmd,"pwd")) pwd(cur,remain);
         else printf("Command \'%s\' not found.\n",cmd);
         save_fd("directory.bin");
+        user_save_userlist("userlist.bin");
     }
+    user_freeall();
     freeall(root);
     return 0;
 }
